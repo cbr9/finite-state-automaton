@@ -49,23 +49,22 @@ impl<Q: Debug + Eq + Hash + Clone> FSA<Q> {
             HashMap::from_iter(tape.into_iter().enumerate());
 
         let length = index_to_item.len();
-        let mut current_character_index = 0;
+        let mut current_input_index = 0;
         let mut current_state = self.start_state.clone();
 
         loop {
-            if current_character_index == length {
+            if current_input_index == length {
                 return self.accept_states.contains(&current_state);
             } else {
                 let current_state_index = self.state_to_index[&current_state];
-                let current_character = index_to_item[&current_character_index].to_string();
-                match self.symbol_to_index.get(&current_character) {
-                    Some(symbol) => {
-                        let next_state = &self.transition_matrix[current_state_index][*symbol];
-                        match next_state {
+                let current_symbol = index_to_item[&current_input_index].to_string();
+                match self.symbol_to_index.get(&current_symbol) {
+                    Some(current_symbol_index) => {
+                        match &self.transition_matrix[current_state_index][*current_symbol_index] {
                             None => return false,
                             Some(next_state) => {
                                 current_state = next_state.clone();
-                                current_character_index += 1;
+                                current_input_index += 1;
                             }
                         }
                     }
