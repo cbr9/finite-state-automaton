@@ -84,8 +84,14 @@ fn main() {
         &['b', 'a', '!'],
         0,
         &[4],
+        //             INPUT
+        // STATE    b   a   !
+        //   q0     1   ∅  ∅
+        //   q1    ∅   2   ∅
+        //   q2    ∅   3   ∅
+        //   q3    ∅   3   4
+        //   q4    ∅  ∅   ∅
         &[
-            //     b        a     !
             &[Some(1), None, None],
             &[None, Some(2), None],
             &[None, Some(3), None],
