@@ -4,30 +4,33 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-struct FSA<Q> {
-    transition_matrix: Vec<Vec<Option<Q>>>,
+struct FSA<'a, Q> {
+    accept_states: &'a [Q],
+    transition_matrix: &'a [&'a [Option<Q>]],
     start_state: Q,
-    accept_states: Vec<Q>,
     state_to_index: HashMap<Q, usize, RandomState>,
     symbol_to_index: HashMap<String, usize, RandomState>,
 }
 
-impl<Q: Debug + Eq + Hash + Clone> FSA<Q> {
+impl<'a, Q: Debug + Eq + Hash + Clone> FSA<'a, Q> {
     fn new<S: ToString>(
-        states: Vec<Q>,
-        symbols: Vec<S>,
+        states: &'a [Q],
+        symbols: &'a [S],
         start_state: Q,
-        accept_states: Vec<Q>,
-        transition_matrix: Vec<Vec<Option<Q>>>,
+        accept_states: &'a [Q],
+        transition_matrix: &'a [&'a [Option<Q>]],
     ) -> Self {
         assert!(states.contains(&start_state));
-        assert!(accept_states.iter().all(|state| states.contains(state)) && accept_states.len() <= states.len());
+        assert!(
+            accept_states.iter().all(|state| states.contains(state))
+                && accept_states.len() <= states.len()
+        );
 
         let state_to_index = HashMap::from_iter(
             states
                 .into_iter()
                 .enumerate()
-                .map(|(index, state)| (state, index)),
+                .map(|(index, state)| (state.clone(), index)),
         );
         let symbol_to_index = HashMap::from_iter(
             symbols
@@ -77,17 +80,17 @@ impl<Q: Debug + Eq + Hash + Clone> FSA<Q> {
 
 fn main() {
     let fsa = FSA::new(
-        vec![0, 1, 2, 3, 4],
-        vec!['b', 'a', '!'],
+        &[0, 1, 2, 3, 4],
+        &['b', 'a', '!'],
         0,
-        vec![4],
-        vec![
+        &[4],
+        &[
             //     b        a     !
-            vec![Some(1), None, None],
-            vec![None, Some(2), None],
-            vec![None, Some(3), None],
-            vec![None, Some(3), Some(4)],
-            vec![None, None, None],
+            &[Some(1), None, None],
+            &[None, Some(2), None],
+            &[None, Some(3), None],
+            &[None, Some(3), Some(4)],
+            &[None, None, None],
         ],
     );
     assert!(fsa.accepts("baa!".chars()));
