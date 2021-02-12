@@ -21,7 +21,7 @@ impl<Q: Debug + Eq + Hash + Clone> FSA<Q> {
         transition_matrix: Vec<Vec<Option<Q>>>,
     ) -> Self {
         assert!(states.contains(&start_state));
-        assert!(accept_states.iter().all(|state| states.contains(state)));
+        assert!(accept_states.iter().all(|state| states.contains(state)) && accept_states.len() <= states.len());
 
         let state_to_index = HashMap::from_iter(
             states
