@@ -1,0 +1,6 @@
+[package]
+name = "finite-state-automaton"
+version = "0.1.0"
+authors = ["cabero"]
+edition = "2018"
+
