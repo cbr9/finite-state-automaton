@@ -4,21 +4,21 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::iter::FromIterator;
 
-struct FSA<'a, Q> {
+#[derive(Debug)]
+pub struct FSA<'a, Q> {
     accept_states: &'a [Q],
-    transition_matrix: &'a [&'a [Option<Q>]],
+    transition_matrix: Vec<Vec<Option<Q>>>,
     start_state: Q,
     state_to_index: HashMap<Q, usize, RandomState>,
     symbol_to_index: HashMap<String, usize, RandomState>,
 }
 
 impl<'a, Q: Debug + Eq + Hash + Clone> FSA<'a, Q> {
-    fn new<S: ToString>(
+    pub fn new<S: ToString>(
         states: &'a [Q],
         symbols: &'a [S],
         start_state: Q,
         accept_states: &'a [Q],
-        transition_matrix: &'a [&'a [Option<Q>]],
     ) -> Self {
         assert!(states.contains(&start_state));
         assert!(
@@ -41,13 +41,22 @@ impl<'a, Q: Debug + Eq + Hash + Clone> FSA<'a, Q> {
         Self {
             start_state,
             accept_states,
-            transition_matrix,
+            transition_matrix: vec![vec![None; symbols.len()]; states.len()],
             state_to_index,
             symbol_to_index,
         }
     }
 
-    fn accepts<P: ToString + Hash + Eq, T: Iterator<Item = P>>(&self, tape: T) -> bool {
+    pub fn transition<S: ToString>(mut self, from: Q, to: Q, on: &[S]) -> Self {
+        let from_index = self.state_to_index[&from];
+        for symbol in on {
+            let symbol_index = self.symbol_to_index[&symbol.to_string()];
+            self.transition_matrix[from_index][symbol_index].replace(to.clone());
+        }
+        self
+    }
+
+    pub fn accepts<P: ToString + Hash + Eq, T: Iterator<Item = P>>(&self, tape: T) -> bool {
         let index_to_item: HashMap<usize, T::Item, RandomState> =
             HashMap::from_iter(tape.into_iter().enumerate());
 
@@ -76,14 +85,18 @@ impl<'a, Q: Debug + Eq + Hash + Clone> FSA<'a, Q> {
             }
         }
     }
+
+    pub fn rejects<P: ToString + Hash + Eq, T: Iterator<Item = P>>(&self, tape: T) -> bool {
+        !self.accepts(tape)
+    }
 }
 
-fn main() {
-    let fsa = FSA::new(
-        &[0, 1, 2, 3, 4],
-        &['b', 'a', '!'],
-        0,
-        &[4],
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn sheeptalk() {
         //           INPUT
         // STATE   b   a   !
         //   0     1   ∅   ∅
@@ -91,16 +104,16 @@ fn main() {
         //   2     ∅   3   ∅
         //   3     ∅   3   4
         //   4:    ∅   ∅   ∅
-        &[
-            &[Some(1), None, None],
-            &[None, Some(2), None],
-            &[None, Some(3), None],
-            &[None, Some(3), Some(4)],
-            &[None, None, None],
-        ],
-    );
-    assert!(fsa.accepts("baa!".chars()));
-    assert!(!fsa.accepts("ba!".chars()));
-    assert!(fsa.accepts("baaaaa!".chars()));
-    assert!(!fsa.accepts(1234345.to_string().chars()));
+        let fsa = FSA::new(&[0, 1, 2, 3, 4], &['b', 'a', '!'], 0, &[4])
+            .transition(0, 1, &['b'])
+            .transition(1, 2, &['a'])
+            .transition(2, 3, &['a'])
+            .transition(3, 3, &['a'])
+            .transition(3, 4, &['!']);
+
+        assert!(fsa.accepts("baa!".chars()));
+        assert!(fsa.rejects("ba!".chars()));
+        assert!(fsa.accepts("baaaaa!".chars()));
+        assert!(fsa.rejects(1234345.to_string().chars()));
+    }
 }
