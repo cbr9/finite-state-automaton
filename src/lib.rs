@@ -13,12 +13,54 @@ pub struct FSA<'a, Q> {
     symbol_to_index: HashMap<String, usize, RandomState>,
 }
 
+pub struct Transition<Q, S> {
+    from: Q,
+    to: Q,
+    on: Vec<S>,
+}
+
+#[macro_export]
+macro_rules! transitions {
+    [$(([$($symbol:expr),+], $from:expr) => $to:expr),+] => {
+        vec![
+            $(
+                transition!(([$($symbol),+], $from) => $to)
+            ),+
+        ]
+    };
+    [$(($symbol:expr, $from:expr) => $to:expr),+] => {
+        vec![
+            $(
+                transition!(($symbol, $from) => $to)
+            ),+
+        ]
+    }
+}
+
+macro_rules! transition {
+    (([$($symbol:expr),+], $from:expr) => $to:expr) => {
+        Transition {
+            from: $from,
+            to: $to,
+            on: vec![$($symbol),+]
+        }
+    };
+    (($symbol:expr, $from:expr) => $to:expr) => {
+        Transition {
+            from: $from,
+            to: $to,
+            on: vec![$symbol]
+        }
+    }
+}
+
 impl<'a, Q: Debug + Eq + Hash + Clone> FSA<'a, Q> {
     pub fn new<S: ToString>(
         states: &'a [Q],
         symbols: &'a [S],
         start_state: Q,
         accept_states: &'a [Q],
+        transitions: Vec<Transition<Q, S>>,
     ) -> Self {
         assert!(states.contains(&start_state));
         assert!(
@@ -38,22 +80,25 @@ impl<'a, Q: Debug + Eq + Hash + Clone> FSA<'a, Q> {
                 .enumerate()
                 .map(|(index, symbol)| (symbol.to_string(), index)),
         );
-        Self {
+        let mut fsa = Self {
             start_state,
             accept_states,
             transition_matrix: vec![vec![None; symbols.len()]; states.len()],
             state_to_index,
             symbol_to_index,
+        };
+        for transition in transitions {
+            fsa.add_transition(transition);
         }
+        fsa
     }
 
-    pub fn transition<S: ToString>(mut self, from: Q, to: Q, on: &[S]) -> Self {
-        let from_index = self.state_to_index[&from];
-        for symbol in on {
+    fn add_transition<S: ToString>(&mut self, transition: Transition<Q, S>) {
+        let from_index = self.state_to_index[&transition.from];
+        for symbol in transition.on {
             let symbol_index = self.symbol_to_index[&symbol.to_string()];
-            self.transition_matrix[from_index][symbol_index].replace(to.clone());
+            self.transition_matrix[from_index][symbol_index].replace(transition.to.clone());
         }
-        self
     }
 
     pub fn accepts<P: ToString + Hash + Eq, T: Iterator<Item = P>>(&self, tape: T) -> bool {
@@ -91,7 +136,6 @@ impl<'a, Q: Debug + Eq + Hash + Clone> FSA<'a, Q> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -104,12 +148,19 @@ mod tests {
         //   2     ∅   3   ∅
         //   3     ∅   3   4
         //   4:    ∅   ∅   ∅
-        let fsa = FSA::new(&[0, 1, 2, 3, 4], &['b', 'a', '!'], 0, &[4])
-            .transition(0, 1, &['b'])
-            .transition(1, 2, &['a'])
-            .transition(2, 3, &['a'])
-            .transition(3, 3, &['a'])
-            .transition(3, 4, &['!']);
+        let fsa = FSA::new(
+            &[0, 1, 2, 3, 4],
+            &['b', 'a', '!'],
+            0,
+            &[4],
+            transitions![
+                 ('b', 0) => 1,
+                 ('a', 1) => 2,
+                 ('a', 2) => 3,
+                 ('a', 3) => 3,
+                 ('!', 3) => 4
+            ],
+        );
 
         assert!(fsa.accepts("baa!".chars()));
         assert!(fsa.rejects("ba!".chars()));
